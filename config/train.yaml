@@ -1,7 +1,7 @@
 defaults:
     - agent: sac
 
-env: cheetah_run
+env: quadruped_run
 
 # this needs to be specified manually
 experiment: test_exp
