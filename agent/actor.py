@@ -69,6 +69,13 @@ class DiagGaussianActor(nn.Module):
         self.apply(utils.weight_init)
 
     def forward(self, obs):
+        acts = self.trunk(obs)
+        with torch.no_grad():
+            mu, log_std = acts.chunk(2, dim=-1)
+            self.outputs['mu'] = mu
+            self.outputs['log_std'] = log_std
+        return acts
+
         mu, log_std = self.trunk(obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]

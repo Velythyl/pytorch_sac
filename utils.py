@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from gym import Env
 from torch import nn
 from torch import distributions as pyd
 import torch.nn.functional as F
@@ -11,6 +12,21 @@ import math
 
 import dmc2gym
 
+class TimestepObsWrapper(gym.Wrapper):
+    def __init__(self, env: Env):
+        super().__init__(env)
+        self.timestep = 0
+        self._max_episode_steps = env._max_episode_steps
+
+    def step(self, action):
+        self.timestep += 1
+        obs, rew, done, info = self.env.step(action)
+        obs = (obs, self.timestep)
+        return obs, rew, done, info
+
+    def reset(self, **kwargs):
+        self.timestep = 0
+        return (self.env.reset(**kwargs), self.timestep)
 
 def make_env(cfg):
     """Helper function to create dm_control environment"""
@@ -29,6 +45,7 @@ def make_env(cfg):
     assert env.action_space.low.min() >= -1
     assert env.action_space.high.max() <= 1
 
+   # env = TimestepObsWrapper(env)
     return env
 
 
@@ -92,6 +109,11 @@ def weight_init(m):
         if hasattr(m.bias, 'data'):
             m.bias.data.fill_(0.0)
 
+def identity_init(m):
+    if isinstance(m, nn.Linear):
+        nn.init.eye_(m.weight.data)
+        if hasattr(m.bias, 'data'):
+            m.bias.data.fill_(0.0)
 
 class MLP(nn.Module):
     def __init__(self,
