@@ -6,19 +6,20 @@ from agent.actor import SquashedNormal
 
 
 class _ResidualActor(nn.Module):
-    def __init__(self, residual, primitive, action_dim, hidden_dim, hidden_depth,
-                 log_std_bounds):
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds):
         super().__init__()
-        self.residual = residual
-        self.log_std_bounts = log_std_bounds
-        self.log_std_bounts = residual.log_std_bounds
-        self.primitive = primitive
 
-    def _forward(self, obs, frame_nb) -> torch.Tensor:
+        self.residual = utils.mlp(obs_dim, hidden_dim, 2 * action_dim,
+                               hidden_depth)
+        self.log_std_bounds = log_std_bounds
+        self.outputs = dict()
+        self.residual.apply(utils.weight_init)
+
+    def _forward(self, obs) -> torch.Tensor:
         return NotImplementedError()
 
-    def forward(self, obs, frame_nb):
-        mu, log_std = self._forward(obs, frame_nb).chunk(2, dim=-1)
+    def forward(self, obs):
+        mu, log_std = self._forward(obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -38,38 +39,48 @@ class _ResidualActor(nn.Module):
         for k, v in self.outputs.items():
             logger.log_histogram(f'train_residual/{k}_hist', v, step)
 
-        for i, m in enumerate(self.trunk):
+        for i, m in enumerate(self.residual):
             if type(m) == nn.Linear:
                 logger.log_param(f'train_residual/fc{i}', m, step)
 
     def log(self, logger, step):
         self._log(logger, step)
-        self.residual.log(logger, step)
 
 
-class NoResidualActor(_ResidualActor):
-    def _forward(self, obs, frame_nb):
+class NoPrimitiveResidualActor(_ResidualActor):
+    def _forward(self, obs):
         return self.residual(obs)
-
-    def log(self, logger, step):
-        self._log(logger, step)
 
 
 class ResidualActor(_ResidualActor):
-    def __init__(self, residual, primitive, action_dim, hidden_dim, hidden_depth, log_std_bounds):
-        super().__init__(residual, primitive, action_dim, hidden_dim, hidden_depth, log_std_bounds)
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, primitive):
+        super().__init__(obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds)
+
+        self.primitive = primitive
 
         obs_dim = action_dim * 3
 
-        self.trunk = utils.mlp(obs_dim, hidden_dim, 2 * action_dim,
+        self.mixer = utils.mlp(obs_dim, hidden_dim, 2 * action_dim,
                                hidden_depth)
-        self.trunk.apply(utils.identity_init)
+        self.mixer.apply(utils.identity_init)
 
-    def _forward(self, obs, frame_nb):
+    def _forward(self, obs):
+        frame_nb = NotImplementedError()
+
         residual = self.residual(obs)
         with torch.no_grad():
             base = self.primitive(obs, frame_nb).detach()
 
         obs = torch.cat((residual, base), dim=-1)
-        mixed = self.trunk(obs)
+        mixed = self.mixer(obs)
         return mixed
+
+def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds):
+    def _instantiate(primitive):
+        if primitive is None:
+            residual_actor = NoPrimitiveResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds)
+        else:
+            residual_actor = ResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds, primitive=primitive)
+        return residual_actor
+
+    return _instantiate

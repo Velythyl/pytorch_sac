@@ -13,7 +13,7 @@ import hydra
 class SACAgent(Agent):
     """SAC algorithm."""
     def __init__(self, obs_dim, action_dim, action_range, device, critic_cfg,
-                 actor_cfg, discount, init_temperature, alpha_lr, alpha_betas,
+                 actor_cfg, primitive_cfg, discount, init_temperature, alpha_lr, alpha_betas,
                  actor_lr, actor_betas, actor_update_frequency, critic_lr,
                  critic_betas, critic_tau, critic_target_update_frequency,
                  batch_size, learnable_temperature):
@@ -33,7 +33,11 @@ class SACAgent(Agent):
             self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
-        self.actor = hydra.utils.instantiate(actor_cfg).to(self.device)
+        residual_target = hydra.utils.instantiate(actor_cfg)(None).residual   # grab residual mlp network from target actor
+        primitive = hydra.utils.instantiate(primitive_cfg)(residual_target).to(self.device)
+
+        self.actor = hydra.utils.instantiate(actor_cfg)(primitive).to(self.device)
+
 
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(self.device)
         self.log_alpha.requires_grad = True

@@ -7,7 +7,8 @@ agent:
     action_range: ??? # to be specified later
     device: ${device}
     critic_cfg: ${double_q_critic}
-    actor_cfg: ${diag_gaussian_actor}
+    actor_cfg: ${residual_actor}
+    primitive_cfg: ${primitive_actor}
     discount: 0.99
     init_temperature: 0.1
     alpha_lr: 1e-4
@@ -30,11 +31,21 @@ double_q_critic:
     hidden_dim: 1024
     hidden_depth: 2
     
-diag_gaussian_actor:
-  class: agent.actor.DiagGaussianActor
+residual_actor:
+  class: agent.residual_actor.InstantiateResidualActor
   params:
     obs_dim: ${agent.params.obs_dim}
     action_dim: ${agent.params.action_dim}
     hidden_depth: 2
     hidden_dim: 1024
     log_std_bounds: [-5, 2]
+
+primitive_actor:
+  class: agent.primitives.InstantiatePrimitives
+  params:
+    action_dim: ${agent.params.action_dim}
+    tau: 0.005
+    which:
+      uniform: false  # false or 0 means deactivated, otherwise used as bound for random func
+      target: false
+      noop: false
