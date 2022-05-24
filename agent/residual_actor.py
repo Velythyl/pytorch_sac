@@ -15,11 +15,17 @@ class _ResidualActor(nn.Module):
         self.outputs = dict()
         self.residual.apply(utils.weight_init)
 
-    def _forward(self, obs) -> torch.Tensor:
+    def residual_actor(self, obs):
+        return self.residual(obs)
+
+    def _forward(self, obs) -> (torch.Tensor, torch.Tensor):
+        """
+        returns mu, log_std
+        """
         return NotImplementedError()
 
     def forward(self, obs):
-        mu, log_std = self._forward(obs).chunk(2, dim=-1)
+        mu, log_std = self._forward(obs)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -49,7 +55,7 @@ class _ResidualActor(nn.Module):
 
 class NoPrimitiveResidualActor(_ResidualActor):
     def _forward(self, obs):
-        return self.residual(obs)
+        return utils.mu_logstd_from_vector(self.residual(obs))
 
 
 class ResidualActor(_ResidualActor):
@@ -73,7 +79,10 @@ class ResidualActor(_ResidualActor):
 
         obs = torch.cat((residual, base), dim=-1)
         mixed = self.mixer(obs)
-        return mixed
+
+        mu, log_std = utils.mu_logstd_from_vector(mixed)
+        mu = mu + base
+        return mu, log_std
 
 def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds):
     def _instantiate(primitive):

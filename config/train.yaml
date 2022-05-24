@@ -31,4 +31,4 @@ seed: 1
 hydra:
     name: ${env}
     run:
-        dir: ./exp/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
+        dir: ./exp/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${hydra.job.override_dirname}

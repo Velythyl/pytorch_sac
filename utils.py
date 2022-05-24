@@ -80,6 +80,8 @@ class train_mode(object):
             model.train(state)
         return False
 
+def mu_logstd_from_vector(vectors):
+    return vectors.chunk(2, dim=-1)
 
 def soft_update_params(net, target_net, tau):
     for param, target_param in zip(net.parameters(), target_net.parameters()):

@@ -33,10 +33,15 @@ class SACAgent(Agent):
             self.device)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
-        residual_target = hydra.utils.instantiate(actor_cfg)(None).residual   # grab residual mlp network from target actor
-        primitive = hydra.utils.instantiate(primitive_cfg)(residual_target).to(self.device)
+        # grab residual mlp network from target actor
+        residual_target = hydra.utils.instantiate(actor_cfg)(None).residual
+        primitive = hydra.utils.instantiate(primitive_cfg)(residual_target)
+        if primitive is not None:
+            primitive = primitive.to(self.device)
 
         self.actor = hydra.utils.instantiate(actor_cfg)(primitive).to(self.device)
+        # weights of target residual and residual are the same initially
+        self.actor.residual.load_state_dict(residual_target.state_dict())
 
 
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(self.device)
