@@ -164,7 +164,7 @@ class Workspace(object):
         for k, v in payload.items():
             self.__dict__[k] = v
 
-LOAD_DIR = "/home/charlie/Desktop/pytorch_sac/exp/2022.05.24/1448_sac_primitive_actor.params.which.target=true"
+LOAD_DIR = None #"/home/charlie/Desktop/pytorch_sac/exp/2022.05.24/1448_sac_primitive_actor.params.which.target=true"
 
 @hydra.main(config_path='config/train.yaml', strict=True)
 def main(cfg):
