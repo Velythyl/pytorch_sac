@@ -12,6 +12,7 @@ class ReplayBuffer(object):
         obs_dtype = np.float32 if len(obs_shape) == 1 else np.uint8
 
         self.obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
+        self.timesteps = np.empty((capacity, 1), dtype=np.float32)  # really its an int but wtv
         self.next_obses = np.empty((capacity, *obs_shape), dtype=obs_dtype)
         self.actions = np.empty((capacity, *action_shape), dtype=np.float32)
         self.rewards = np.empty((capacity, 1), dtype=np.float32)
@@ -25,8 +26,9 @@ class ReplayBuffer(object):
     def __len__(self):
         return self.capacity if self.full else self.idx
 
-    def add(self, obs, action, reward, next_obs, done, done_no_max):
+    def add(self, obs, timestep, action, reward, next_obs, done, done_no_max):
         np.copyto(self.obses[self.idx], obs)
+        np.copyto(self.timesteps[self.idx], timestep)
         np.copyto(self.actions[self.idx], action)
         np.copyto(self.rewards[self.idx], reward)
         np.copyto(self.next_obses[self.idx], next_obs)
@@ -42,6 +44,7 @@ class ReplayBuffer(object):
                                  size=batch_size)
 
         obses = torch.as_tensor(self.obses[idxs], device=self.device).float()
+        timesteps = torch.as_tensor(self.timesteps[idxs], device=self.device).float()
         actions = torch.as_tensor(self.actions[idxs], device=self.device)
         rewards = torch.as_tensor(self.rewards[idxs], device=self.device)
         next_obses = torch.as_tensor(self.next_obses[idxs],
@@ -50,4 +53,4 @@ class ReplayBuffer(object):
         not_dones_no_max = torch.as_tensor(self.not_dones_no_max[idxs],
                                            device=self.device)
 
-        return obses, actions, rewards, next_obses, not_dones, not_dones_no_max
+        return obses, timesteps, actions, rewards, next_obses, not_dones, not_dones_no_max

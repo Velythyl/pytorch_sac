@@ -24,7 +24,7 @@ class _ResidualActor(nn.Module):
         """
         return NotImplementedError()
 
-    def forward(self, obs):
+    def forward(self, obs, frame_nb):
         mu, log_std = self._forward(obs)
 
         # constrain log_std inside [log_std_min, log_std_max]

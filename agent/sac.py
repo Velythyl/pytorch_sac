@@ -9,6 +9,8 @@ import utils
 
 import hydra
 
+from agent.primitives import NoBackpropWrapper
+
 
 class SACAgent(Agent):
     """SAC algorithm."""
@@ -38,8 +40,10 @@ class SACAgent(Agent):
         primitive = hydra.utils.instantiate(primitive_cfg)(residual_target)
         if primitive is not None:
             primitive = primitive.to(self.device)
+        self.primitive = primitive
+        wrapped_primitive = NoBackpropWrapper(primitive)
 
-        self.actor = hydra.utils.instantiate(actor_cfg)(primitive).to(self.device)
+        self.actor = hydra.utils.instantiate(actor_cfg)(wrapped_primitive).to(self.device)
         # weights of target residual and residual are the same initially
         self.actor.residual.load_state_dict(residual_target.state_dict())
 
@@ -74,18 +78,20 @@ class SACAgent(Agent):
     def alpha(self):
         return self.log_alpha.exp()
 
-    def act(self, obs, sample=False):
+    def act(self, obs, timestep, sample=False):
         obs = torch.FloatTensor(obs).to(self.device)
         obs = obs.unsqueeze(0)
-        dist = self.actor(obs)
+        dist = self.actor(obs, timestep)
         action = dist.sample() if sample else dist.mean
         action = action.clamp(*self.action_range)
         assert action.ndim == 2 and action.shape[0] == 1
         return utils.to_np(action[0])
 
-    def update_critic(self, obs, action, reward, next_obs, not_done, logger,
+    def update_critic(self, obs, timestep, action, reward, next_obs, not_done, logger,
                       step):
-        dist = self.actor(next_obs)
+        next_timestep = timestep + 1
+
+        dist = self.actor(next_obs, next_timestep)
         next_action = dist.rsample()
         log_prob = dist.log_prob(next_action).sum(-1, keepdim=True)
         target_Q1, target_Q2 = self.critic_target(next_obs, next_action)
@@ -107,8 +113,8 @@ class SACAgent(Agent):
 
         self.critic.log(logger, step)
 
-    def update_actor_and_alpha(self, obs, logger, step):
-        dist = self.actor(obs)
+    def update_actor_and_alpha(self, obs, timestep, logger, step):
+        dist = self.actor(obs, timestep)
         action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         actor_Q1, actor_Q2 = self.critic(obs, action)
@@ -137,16 +143,17 @@ class SACAgent(Agent):
             self.log_alpha_optimizer.step()
 
     def update(self, replay_buffer, logger, step):
-        obs, action, reward, next_obs, not_done, not_done_no_max = replay_buffer.sample(
+        obs, timestep, action, reward, next_obs, not_done, not_done_no_max = replay_buffer.sample(
             self.batch_size)
 
         logger.log('train/batch_reward', reward.mean(), step)
 
-        self.update_critic(obs, action, reward, next_obs, not_done_no_max,
+        self.update_critic(obs, timestep, action, reward, next_obs, not_done_no_max,
                            logger, step)
 
         if step % self.actor_update_frequency == 0:
-            self.update_actor_and_alpha(obs, logger, step)
+            self.primitive.update(self.actor, (obs, action, reward, next_obs, not_done, not_done_no_max))
+            self.update_actor_and_alpha(obs, timestep, logger, step)
 
         if step % self.critic_target_update_frequency == 0:
             utils.soft_update_params(self.critic, self.critic_target,

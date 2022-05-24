@@ -75,15 +75,15 @@ class Workspace(object):
     def evaluate(self):
         average_episode_reward = 0
         for episode in range(self.cfg.num_eval_episodes):
-            obs = self.env.reset()
+            obs, timestep = self.env.reset()
             self.agent.reset()
             self.video_recorder.init(enabled=(episode == 0))
             done = False
             episode_reward = 0
             while not done:
                 with utils.eval_mode(self.agent):
-                    action = self.agent.act(obs, sample=False)
-                obs, reward, done, _ = self.env.step(action)
+                    action = self.agent.act(obs, timestep, sample=False)
+                (obs, timestep), reward, done, _ = self.env.step(action)
                 self.video_recorder.record(self.env)
                 episode_reward += reward
 
@@ -93,6 +93,7 @@ class Workspace(object):
         self.logger.log('eval/episode_reward', average_episode_reward,
                         self.step)
         self.logger.dump(self.step)
+        self.save_snapshot()
 
     def run(self):
         episode, episode_reward, done = 0, 0, True
@@ -114,7 +115,7 @@ class Workspace(object):
                 self.logger.log('train/episode_reward', episode_reward,
                                 self.step)
 
-                obs = self.env.reset()
+                obs, timestep = self.env.reset()
                 self.agent.reset()
                 done = False
                 episode_reward = 0
@@ -128,30 +129,48 @@ class Workspace(object):
                 action = self.env.action_space.sample()
             else:
                 with utils.eval_mode(self.agent):
-                    action = self.agent.act(obs, sample=True)
+                    action = self.agent.act(obs, timestep, sample=True)
 
             # run training update
             if self.step >= self.cfg.num_seed_steps:
                 self.agent.update(self.replay_buffer, self.logger, self.step)
 
-            next_obs, reward, done, _ = self.env.step(action)
+            (next_obs, next_timestep), reward, done, _ = self.env.step(action)
 
             # allow infinite bootstrap
             done = float(done)
             done_no_max = 0 if episode_step + 1 == self.env._max_episode_steps else done
             episode_reward += reward
 
-            self.replay_buffer.add(obs, action, reward, next_obs, done,
+            self.replay_buffer.add(obs, timestep, action, reward, next_obs, done,
                                    done_no_max)
 
             obs = next_obs
+            timestep = next_timestep
             episode_step += 1
             self.step += 1
 
+    def save_snapshot(self):    # only supports agent
+        snapshot = f"{self.work_dir}/snapshot.pt"
+        keys_to_save = ['agent']#, 'timer', '_global_step', '_global_episode']
+        payload = {k: self.__dict__[k] for k in keys_to_save}
+        with open(snapshot, 'wb') as f:
+            torch.save(payload, f)
+
+    def load_snapshot(self, load_dir):
+        snapshot = f"{load_dir}/snapshot.pt"
+        with open(snapshot, 'rb') as f:
+            payload = torch.load(f)
+        for k, v in payload.items():
+            self.__dict__[k] = v
+
+LOAD_DIR = "/home/charlie/Desktop/pytorch_sac/exp/2022.05.24/1448_sac_primitive_actor.params.which.target=true"
 
 @hydra.main(config_path='config/train.yaml', strict=True)
 def main(cfg):
     workspace = Workspace(cfg)
+    if LOAD_DIR is not None:
+        workspace.load_snapshot(LOAD_DIR)
     workspace.run()
 
 

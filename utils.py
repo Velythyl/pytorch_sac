@@ -45,7 +45,7 @@ def make_env(cfg):
     assert env.action_space.low.min() >= -1
     assert env.action_space.high.max() <= 1
 
-   # env = TimestepObsWrapper(env)
+    env = TimestepObsWrapper(env)
     return env
 
 
