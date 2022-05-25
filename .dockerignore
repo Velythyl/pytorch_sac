@@ -1,0 +1,7 @@
+/exp
+/figures
+/data
+*tfevents*
+*.mp4*
+venv
+*pycache*

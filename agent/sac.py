@@ -38,12 +38,12 @@ class SACAgent(Agent):
         # grab residual mlp network from target actor
         residual_target = hydra.utils.instantiate(actor_cfg)(None).residual
         primitive = hydra.utils.instantiate(primitive_cfg)(residual_target)
+        self.primitive = primitive
         if primitive is not None:
             primitive = primitive.to(self.device)
-        self.primitive = primitive
-        wrapped_primitive = NoBackpropWrapper(primitive)
+            primitive = NoBackpropWrapper(primitive)
 
-        self.actor = hydra.utils.instantiate(actor_cfg)(wrapped_primitive).to(self.device)
+        self.actor = hydra.utils.instantiate(actor_cfg)(primitive).to(self.device)
         # weights of target residual and residual are the same initially
         self.actor.residual.load_state_dict(residual_target.state_dict())
 
@@ -152,7 +152,8 @@ class SACAgent(Agent):
                            logger, step)
 
         if step % self.actor_update_frequency == 0:
-            self.primitive.update(self.actor, (obs, action, reward, next_obs, not_done, not_done_no_max))
+            if self.primitive is not None:
+                self.primitive.update(self.actor, (obs, action, reward, next_obs, not_done, not_done_no_max))
             self.update_actor_and_alpha(obs, timestep, logger, step)
 
         if step % self.critic_target_update_frequency == 0:
