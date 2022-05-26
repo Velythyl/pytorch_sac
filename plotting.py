@@ -28,7 +28,7 @@ def plot_gait(gait, global_steps, save_dir=None):
     with open(f"{save_dir}/gaits.csv", "w") as f:
         f.write(gait_csv_str)
 
-    plots = {}
+    #plots = {}
     for actuator_id in range(nb_actuators):
         y1 = gaits[:, actuator_id]
 
@@ -41,6 +41,6 @@ def plot_gait(gait, global_steps, save_dir=None):
             plt.savefig(f'{save_dir}/image_actuator{actuator_id}.png')
             plt.clf()
 
-        tag = f"eval_gait/A{actuator_id}_S{global_steps}_P{period}"
-        plots[tag] = (all_frames.squeeze(), y1.squeeze())
-    return plots
+        #tag = f"eval_gait/A{actuator_id}_S{global_steps}_P{period}"
+        #plots[tag] = (all_frames.squeeze(), y1.squeeze())
+    #return plots

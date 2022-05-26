@@ -98,10 +98,6 @@ class Workspace(object):
             self.agent.primitive.eval_log(self.logger, self.step)
 
     def run(self):
-
-        if self.agent.primitive is not None:
-            self.agent.primitive.eval_log(self.logger, self.step)
-
         episode, episode_reward, done = 0, 0, True
         start_time = time.time()
         while self.step < self.cfg.num_train_steps:

@@ -174,19 +174,9 @@ class GaitPrimitive(_NNBasedPrimitive):
         #    x = torch.linspace(0, self.gait2.period(), self.gait2.period()*3).unsqueeze(0)
         #    y = self.gait2(x)
         dir = f"{logger._log_dir}/actuator_plots/{step}"
-        if not os.path.exists(dir):
-            os.makedirs(dir)
         with torch.no_grad():
-            tb_plots = plotting.plot_gait(self.gait2, step, save_dir=dir)
+            plotting.plot_gait(self.gait2, step, save_dir=dir)
 
-        for key, plot in tb_plots.items():
-            xs = plot[0]
-            ys = plot[1]
-            for i in range(len(xs)):
-                x = xs[i]
-                y = ys[i]
-
-                logger.log(key, y, x)
         #for actuator_id in y:
         #    logger.log(f"train_gait_A{actuator_id}")
 
