@@ -126,6 +126,8 @@ class GaitPrimitive(_NNBasedPrimitive):
         self.opt_loss = (
         torch.optim.Adam(self.gait2.parameters()), nn.MSELoss())
 
+        self.loss_record = None
+
     def forward(self, obs, frame_nb):
         return self.nn(frame_nb)
 
@@ -159,8 +161,13 @@ class GaitPrimitive(_NNBasedPrimitive):
 
         opt.zero_grad()
         loss = mse(y_pred, y_target)
+        self.loss_record = loss.detach().cpu().numpy().item()
         loss.backward()
         opt.step()
+
+    def actor_log(self, logger, step):
+        # This is called right after update()
+        logger.log("train_gait/loss", self.loss_record, step)
 
     def eval_log(self, logger, step):
         #with torch.no_grad():
@@ -170,7 +177,16 @@ class GaitPrimitive(_NNBasedPrimitive):
         if not os.path.exists(dir):
             os.makedirs(dir)
         with torch.no_grad():
-            plotting.plot_gait(self.gait2, step, as_tb=False, save_dir=dir)
+            tb_plots = plotting.plot_gait(self.gait2, step, save_dir=dir)
+
+        for key, plot in tb_plots.items():
+            xs = plot[0]
+            ys = plot[1]
+            for i in range(len(xs)):
+                x = xs[i]
+                y = ys[i]
+
+                logger.log(key, y, x)
         #for actuator_id in y:
         #    logger.log(f"train_gait_A{actuator_id}")
 

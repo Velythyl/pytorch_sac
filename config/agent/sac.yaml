@@ -58,3 +58,4 @@ gait_actor:
     nb_gaussians: 500
     action_len: ${agent.params.action_dim}
     n_frame_repeat: 50  # todo learn this, or infer it using autocorellation or fft
+    pow_2: true

@@ -6,10 +6,14 @@ from torch import nn as nn
 TAU = np.pi * 2
 
 class Gait(nn.Module):
-    def __init__(self, nb_gaussians, action_len, n_frame_repeat):
+    def __init__(self, nb_gaussians, action_len, n_frame_repeat, pow_2):
         super().__init__()
         self.nb_actuators = action_len
         self.mixture_dim = (action_len, nb_gaussians)
+
+        self.pow_2 = pow_2
+        if pow_2:
+            n_frame_repeat = n_frame_repeat / 2
 
         # initial period is to have a ~25 frame period. Learnable parameter.
         self.period_b = nn.Parameter(torch.tensor(TAU / n_frame_repeat), requires_grad=False)
@@ -23,8 +27,10 @@ class Gait(nn.Module):
         self.sigma_matrix = nn.Parameter(-torch.ones(self.mixture_dim), requires_grad=True)
         self.weights = nn.Parameter(torch.zeros(self.mixture_dim).uniform_(-self.nb_actuators, self.nb_actuators), requires_grad=True)
 
+
+
     def period(self):
-        return TAU / self.period_b.clone().detach().item()
+        return TAU / self.period_b.clone().detach().item() / (2 if self.pow_2 else 1)
 
     def frame2percent(self, frame_nb):
         percent = frame_nb * self.period_b
@@ -36,7 +42,11 @@ class Gait(nn.Module):
     def cyclic_gaussian_mixture(self, frame_numbers):
         # https://studywolf.wordpress.com/tag/rhythmic-dynamic-movement-primitives/
         x_mu = frame_numbers - self.mu_matrix
-        cos_x_mu = torch.cos(self.period_b * x_mu) ** 2
+        cos_x_mu = torch.cos(self.period_b * x_mu)
+
+        if self.pow_2:
+            cos_x_mu = cos_x_mu ** 2
+
         scaled_x_mu_pow = torch.mul(self.sigma_matrix, cos_x_mu) - 1
         gaussian = torch.exp(scaled_x_mu_pow)
         return gaussian
