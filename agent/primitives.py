@@ -40,6 +40,11 @@ class CompoundPrimitive(_Primitive):
             act = act + pri(obs, frame_nb)
         return act
 
+    def to(self, device):
+        for pri in self.primitives:
+            pri.to(device)
+        return super(CompoundPrimitive, self).to(device)
+
 
 class _NumericPrimitive(_Primitive):
     def _forward(self, shape):
