@@ -80,7 +80,11 @@ class SACAgent(Agent):
 
     def act(self, obs, timestep, sample=False):
         obs = torch.FloatTensor(obs).to(self.device)
+        timestep = torch.tensor(timestep, dtype=torch.float32).to(self.device)
+
         obs = obs.unsqueeze(0)
+        timestep = timestep.unsqueeze(0).unsqueeze(0)
+
         dist = self.actor(obs, timestep)
         action = dist.sample() if sample else dist.mean
         action = action.clamp(*self.action_range)
@@ -153,7 +157,16 @@ class SACAgent(Agent):
 
         if step % self.actor_update_frequency == 0:
             if self.primitive is not None:
-                self.primitive.update(self.actor, (obs, action, reward, next_obs, not_done, not_done_no_max))
+                batch = {
+                    'obs': obs,
+                    'timestep': timestep,
+                    'action': action,
+                    'reward': reward,
+                    'next_obs': next_obs,
+                    'not_done': not_done,
+                    'not_done_no_max': not_done_no_max
+                }
+                self.primitive.update(self.actor, batch)
             self.update_actor_and_alpha(obs, timestep, logger, step)
 
         if step % self.critic_target_update_frequency == 0:

@@ -49,3 +49,12 @@ primitive_actor:
       uniform: false  # false or 0 means deactivated, otherwise used as bound for random func
       target: false
       noop: false
+      gait: false
+    gait_cfg: ${gait_actor}
+
+gait_actor:
+  class: agent.gait.Gait
+  params:
+    nb_gaussians: 500
+    action_len: ${agent.params.action_dim}
+    n_frame_repeat: 50  # todo learn this, or infer it using autocorellation or fft

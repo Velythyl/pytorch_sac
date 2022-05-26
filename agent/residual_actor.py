@@ -18,14 +18,14 @@ class _ResidualActor(nn.Module):
     def residual_actor(self, obs):
         return self.residual(obs)
 
-    def _forward(self, obs) -> (torch.Tensor, torch.Tensor):
+    def _forward(self, obs, frame_nb) -> (torch.Tensor, torch.Tensor):
         """
         returns mu, log_std
         """
         return NotImplementedError()
 
     def forward(self, obs, frame_nb):
-        mu, log_std = self._forward(obs)
+        mu, log_std = self._forward(obs, frame_nb)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
@@ -54,7 +54,7 @@ class _ResidualActor(nn.Module):
 
 
 class NoPrimitiveResidualActor(_ResidualActor):
-    def _forward(self, obs):
+    def _forward(self, obs, _):
         return utils.mu_logstd_from_vector(self.residual(obs))
 
 
@@ -70,8 +70,8 @@ class ResidualActor(_ResidualActor):
                                hidden_depth)
         self.mixer.apply(utils.identity_init)
 
-    def _forward(self, obs):
-        frame_nb = NotImplementedError()
+    def _forward(self, obs, frame_nb):
+        #frame_nb = NotImplementedError()
 
         residual = self.residual(obs)
         with torch.no_grad():
