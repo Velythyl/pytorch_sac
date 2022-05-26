@@ -41,17 +41,13 @@ class _ResidualActor(nn.Module):
         dist = SquashedNormal(mu, std)
         return dist
 
-    def _log(self, logger, step):
+    def log(self, logger, step):
         for k, v in self.outputs.items():
             logger.log_histogram(f'train_residual/{k}_hist', v, step)
 
         for i, m in enumerate(self.residual):
             if type(m) == nn.Linear:
                 logger.log_param(f'train_residual/fc{i}', m, step)
-
-    def log(self, logger, step):
-        self._log(logger, step)
-
 
 class NoPrimitiveResidualActor(_ResidualActor):
     def _forward(self, obs, _):
@@ -83,6 +79,10 @@ class ResidualActor(_ResidualActor):
         mu, log_std = utils.mu_logstd_from_vector(mixed)
         mu = mu + base
         return mu, log_std
+
+    def log(self, logger, step):
+        self.primitive.log(logger, step)
+        super(ResidualActor, self).log(logger, step)
 
 def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds):
     def _instantiate(primitive):

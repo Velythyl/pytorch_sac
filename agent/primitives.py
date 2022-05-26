@@ -1,7 +1,10 @@
+import os
+
 import hydra
 import torch
 from torch import nn
 
+import plotting
 from agent.gait import Gait
 from agent.residual_actor import _ResidualActor
 from utils import soft_update_params, mu_logstd_from_vector
@@ -26,6 +29,9 @@ class _Primitive(nn.Module):
     def to(self, device):
         self.device = device
         return super(_Primitive, self).to(device)
+
+    def log(self, logger, step):
+        return
 
 
 class CompoundPrimitive(_Primitive):
@@ -138,6 +144,17 @@ class GaitPrimitive(_NNBasedPrimitive):
         loss.backward()
         opt.step()
 
+    def log(self, logger, step):
+        #with torch.no_grad():
+        #    x = torch.linspace(0, self.gait2.period(), self.gait2.period()*3).unsqueeze(0)
+        #    y = self.gait2(x)
+        dir = f"{logger._log_dir}/actuator_plots/{step}"
+        if not os.path.exists(dir):
+            os.makedirs(dir)
+        with torch.no_grad():
+            plotting.plot_gait(self.gait2, step, as_tb=False, save_dir=dir)
+        #for actuator_id in y:
+        #    logger.log(f"train_gait_A{actuator_id}")
 
 class NoBackpropWrapper:
     def __init__(self, primitive):
@@ -152,6 +169,9 @@ class NoBackpropWrapper:
 
     def update(self, actor, batch):
         return self.primitive.update(actor, batch)
+
+    def log(self, logger, step):
+        self.primitive.log(logger, step)
 
 
 def InstantiatePrimitives(action_dim, tau, which, gait_cfg):
