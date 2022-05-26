@@ -1,5 +1,6 @@
 import hydra
 import torch
+import tqdm
 from torch import nn
 
 from agent.gait import Gait
@@ -101,7 +102,7 @@ class GaitPrimitive(_NNBasedPrimitive):
 
         # in tuple so the nn.Module doesn't track them
         self.opt_loss = (
-        torch.optim.Adam(self.gait2.parameters(), lr=0.1), nn.MSELoss())  # large LR! intentional
+        torch.optim.Adam(self.gait2.parameters()), nn.MSELoss())
 
     def forward(self, obs, frame_nb):
         return self.nn(frame_nb)
@@ -121,7 +122,7 @@ class GaitPrimitive(_NNBasedPrimitive):
         y_target.requires_grad = False
 
         if not self.got_init:
-            for i in range(99):
+            for i in tqdm.trange(10000):
                 self.update_step(x, y_target)
             self.got_init = True
 
