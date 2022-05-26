@@ -81,7 +81,7 @@ class ResidualActor(_ResidualActor):
         return mu, log_std
 
     def log(self, logger, step):
-        self.primitive.log(logger, step)
+        self.primitive.actor_log(logger, step)
         super(ResidualActor, self).log(logger, step)
 
 def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds):

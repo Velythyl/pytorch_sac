@@ -117,8 +117,8 @@ class SACAgent(Agent):
 
         self.critic.log(logger, step)
 
-    def update_actor_and_alpha(self, obs, timestep, logger, step):
-        dist = self.actor(obs, timestep)
+    def update_actor_and_alpha(self, obs, action_dist, logger, step):
+        dist = action_dist#self.actor(obs, timestep)
         action = dist.rsample()
         log_prob = dist.log_prob(action).sum(-1, keepdim=True)
         actor_Q1, actor_Q2 = self.critic(obs, action)
@@ -156,6 +156,7 @@ class SACAgent(Agent):
                            logger, step)
 
         if step % self.actor_update_frequency == 0:
+            action_dist = self.actor(obs, timestep)
             if self.primitive is not None:
                 batch = {
                     'obs': obs,
@@ -164,10 +165,11 @@ class SACAgent(Agent):
                     'reward': reward,
                     'next_obs': next_obs,
                     'not_done': not_done,
-                    'not_done_no_max': not_done_no_max
+                    'not_done_no_max': not_done_no_max,
+                    'online_action': action_dist.mean.detach()
                 }
                 self.primitive.update(self.actor, batch)
-            self.update_actor_and_alpha(obs, timestep, logger, step)
+            self.update_actor_and_alpha(obs, action_dist, logger, step)
 
         if step % self.critic_target_update_frequency == 0:
             utils.soft_update_params(self.critic, self.critic_target,

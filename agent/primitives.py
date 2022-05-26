@@ -31,7 +31,10 @@ class _Primitive(nn.Module):
         self.device = device
         return super(_Primitive, self).to(device)
 
-    def log(self, logger, step):
+    def actor_log(self, logger, step):
+        return
+
+    def eval_log(self, logger, step):
         return
 
 
@@ -50,6 +53,14 @@ class CompoundPrimitive(_Primitive):
         for pri in self.primitives:
             pri.to(device)
         return super(CompoundPrimitive, self).to(device)
+
+    def actor_log(self, logger, step):
+        for pri in self.primitives:
+            pri.actor_log(logger, step)
+
+    def eval_log(self, logger, step):
+        for pri in self.primitives:
+            pri.eval_log(logger, step)
 
 
 class _NumericPrimitive(_Primitive):
@@ -119,21 +130,22 @@ class GaitPrimitive(_NNBasedPrimitive):
         return self.nn(frame_nb)
 
     def update(self, actor, batch):
-        obs = batch['obs']
+        # obs = batch['obs']
         # next_obs = batch['next_obs']
 
         timestep = batch['timestep']
         # next_timestep = timestep + 1
 
-        with torch.no_grad():
-            y_target = actor(obs, timestep).mean  # torch.cat((obs, next_obs), dim=1)
+        #with torch.no_grad():
+        #    y_target = actor(obs, timestep).mean  # torch.cat((obs, next_obs), dim=1)
+        y_target = batch['online_action']
         x = timestep  # torch.cat((timestep, next_timestep), dim=1)
 
         x.requires_grad = False
         y_target.requires_grad = False
 
         if not self.got_init:
-            for i in tqdm.trange(10000):
+            for _ in tqdm.trange(5000):
                 self.update_step(x, y_target)
             self.got_init = True
 
@@ -150,7 +162,7 @@ class GaitPrimitive(_NNBasedPrimitive):
         loss.backward()
         opt.step()
 
-    def log(self, logger, step):
+    def eval_log(self, logger, step):
         #with torch.no_grad():
         #    x = torch.linspace(0, self.gait2.period(), self.gait2.period()*3).unsqueeze(0)
         #    y = self.gait2(x)
@@ -176,8 +188,8 @@ class NoBackpropWrapper:
     def update(self, actor, batch):
         return self.primitive.update(actor, batch)
 
-    def log(self, logger, step):
-        self.primitive.log(logger, step)
+    def actor_log(self, logger, step):
+        self.primitive.actor_log(logger, step)
 
 
 def InstantiatePrimitives(action_dim, tau, which, gait_cfg):

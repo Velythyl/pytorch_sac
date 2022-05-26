@@ -94,6 +94,8 @@ class Workspace(object):
                         self.step)
         self.logger.dump(self.step)
         self.save_snapshot()
+        if self.agent.primitive is not None:
+            self.agent.primitive.eval_log(self.logger, self.step)
 
     def run(self):
         episode, episode_reward, done = 0, 0, True
