@@ -1,0 +1,14 @@
+actor + EMA
+
+EMA just uses 0 as noise instead of the actor (which uses the EMA as noise + actual noise, maybe)
+
+Meaning we can just EMA it, no need for gradients.
+
+The idea here is that we can crank up the entropy of the actor, since the EMA regularizes it.
+
+Alternatively, train two agents. Base agent and Residual agent. Base agent is vanilla SAC, Residual agent uses Base
+as a primitive. This allows us to train
+
+In both cases, the idea is that by having a mixer agent, we can infer more information about the task. Like, there's the
+base agent that does stuff, and then there's the self-analyzer sort of agent, that sees what the first agent did and
+then has to fix it.

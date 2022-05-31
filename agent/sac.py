@@ -45,8 +45,10 @@ class SACAgent(Agent):
 
         self.actor = hydra.utils.instantiate(actor_cfg)(primitive).to(self.device)
         # weights of target residual and residual are the same initially
-        self.actor.residual.load_state_dict(residual_target.state_dict())
-
+        #try:
+        #    self.actor.residual.load_state_dict(residual_target.state_dict())
+        #except RuntimeError:
+        #    raise Exception("Target primitive not compatible with bare residual actor")
 
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(self.device)
         self.log_alpha.requires_grad = True

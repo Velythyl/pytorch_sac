@@ -39,6 +39,7 @@ residual_actor:
     hidden_depth: 2
     hidden_dim: 1024
     log_std_bounds: [-5, 2]
+    bare: true
 
 primitive_actor:
   class: agent.primitives.InstantiatePrimitives

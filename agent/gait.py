@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch import nn as nn
 
+from plotting import plot_gait
 
 TAU = np.pi * 2
 
@@ -13,7 +14,7 @@ class Gait(nn.Module):
 
         self.pow_2 = pow_2
         if pow_2:
-            n_frame_repeat = n_frame_repeat / 2
+            n_frame_repeat = n_frame_repeat * 2
 
         # initial period is to have a ~25 frame period. Learnable parameter.
         self.period_b = nn.Parameter(torch.tensor(TAU / n_frame_repeat), requires_grad=False)
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     FRAMES = 50
-    gait = Gait(500, [2], 50).cuda()#Gait(300, [12], n_frame_repeat=FRAMES).cuda()
+    gait = Gait(500, 2, 12, pow_2=True).cuda()#Gait(300, [12], n_frame_repeat=FRAMES).cuda()
     opt = torch.optim.Adam(gait.parameters(), lr=0.1)
 
     x = torch.arange(0, FRAMES, requires_grad=False).unsqueeze(-1).cuda()
@@ -123,7 +124,7 @@ if __name__ == "__main__":
     for i in range(100):
         y_z_pred = gait(x)
 
-        if i % 10 == 0:
+        if False and i % 10 == 0:
             plt.plot(x.cpu().numpy(), y_z_pred.clone().detach().cpu().numpy())
             # plt.plot(x, torch.cos(x))
             plt.plot(x.detach().cpu().numpy(), y_z_pred.detach().cpu().numpy())
@@ -149,6 +150,6 @@ if __name__ == "__main__":
 
 
 
-    plot_gait(gait, 10000, as_tb=False, save_dir='./temp')
+    plot_gait(gait, 10000, save_dir='./temp', debug=True)
 
     pass

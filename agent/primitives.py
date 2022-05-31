@@ -101,13 +101,88 @@ class _NNBasedPrimitive(_Primitive):
 class TargetPrimitive(_NNBasedPrimitive):
     def __init__(self, action_dim, tau, residual_target):
         super().__init__(action_dim, tau, nn=residual_target)
+        self.got_init = False
 
     def update(self, actor, batch):
+        if not self.got_init:
+            self.nn.load_state_dict(actor.residual.state_dict())
+            self.got_init = True
+
         soft_update_params(actor.residual, self.nn, self.tau)
 
     def forward(self, obs, frame_nb):
         return mu_logstd_from_vector(self.nn(obs))[0]
 
+class BCPrimitive(_NNBasedPrimitive):
+    def __init__(self, action_dim, tau, nn1, nn2):
+        super(BCPrimitive, self).__init__(action_dim, tau, nn=nn1)
+
+        # Logic: nn is used by the actor. Always static, never backprops
+        # Gait2 is an exact copy of nn. We update Gait2 using the actor (which uses nn).
+        # That way, Gait2 can be backpropped "against" nn
+
+        self.nn.requires_grad = False
+        self.nn2 = nn2
+        self.nn2.load_state_dict(self.nn.state_dict())
+        self.got_init = False
+
+        # in tuple so the nn.Module doesn't track them
+        self.opt_loss = (
+            torch.optim.Adam(self.nn2.parameters(), lr=0.01), nn.MSELoss())
+
+        self.loss_record = None
+
+    def forward(self, obs, frame_nb):
+        return self.nn(frame_nb)
+
+    def update(self, actor, batch):
+        obs = batch['obs']
+        # next_obs = batch['next_obs']
+
+        # timestep = batch['timestep']
+        # next_timestep = timestep + 1
+
+        #with torch.no_grad():
+        #    y_target = actor(obs, timestep).mean  # torch.cat((obs, next_obs), dim=1)
+        y_target = batch['online_action']
+        x = obs  # torch.cat((timestep, next_timestep), dim=1)
+
+        x.requires_grad = False
+        y_target.requires_grad = False
+
+        if not self.got_init:
+            for _ in tqdm.trange(1000):
+                self.update_step(x, y_target)
+            self.got_init = True
+
+        self.update_step(x, y_target)
+        self.nn.load_state_dict(self.nn2.state_dict())
+
+    def update_step(self, x, y_target):
+        opt, mse = self.opt_loss
+
+        y_pred = self.nn2(x)
+
+        opt.zero_grad()
+        loss = mse(y_pred, y_target)
+        self.loss_record = loss.detach().cpu().numpy().item()
+        loss.backward()
+        opt.step()
+
+    def actor_log(self, logger, step):
+        # This is called right after update()
+        logger.log("train_gait/loss", self.loss_record, step)
+
+    def eval_log(self, logger, step):
+        #with torch.no_grad():
+        #    x = torch.linspace(0, self.gait2.period(), self.gait2.period()*3).unsqueeze(0)
+        #    y = self.gait2(x)
+        dir = f"{logger._log_dir}/actuator_plots/{step}"
+        with torch.no_grad():
+            plotting.plot_gait(self.nn2, step, save_dir=dir)
+
+        #for actuator_id in y:
+        #    logger.log(f"train_gait_A{actuator_id}")
 
 class GaitPrimitive(_NNBasedPrimitive):
     def __init__(self, action_dim, tau, gait1, gait2):

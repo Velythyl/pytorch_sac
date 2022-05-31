@@ -12,3 +12,4 @@ git+https://github.com/facebookresearch/hydra@0.11_branch
 matplotlib
 PyOpenGL-accelerate
 cython
+s2i2a

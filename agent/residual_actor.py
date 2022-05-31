@@ -11,9 +11,9 @@ class _ResidualActor(nn.Module):
 
         self.residual = utils.mlp(obs_dim, hidden_dim, 2 * action_dim,
                                hidden_depth)
+        self.residual.apply(utils.weight_init)
         self.log_std_bounds = log_std_bounds
         self.outputs = dict()
-        self.residual.apply(utils.weight_init)
 
     def residual_actor(self, obs):
         return self.residual(obs)
@@ -53,8 +53,27 @@ class NoPrimitiveResidualActor(_ResidualActor):
     def _forward(self, obs, _):
         return utils.mu_logstd_from_vector(self.residual(obs))
 
+class BarePrimitiveResidualActor(_ResidualActor):
+    def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, primitive):
+        super().__init__(obs_dim + action_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds)
+        self.primitive = primitive
 
-class ResidualActor(_ResidualActor):
+    def _forward(self, obs, frame_nb):
+        with torch.no_grad():
+            base = self.primitive(obs, frame_nb).detach()
+
+        obs_and_primitive = torch.cat((obs, base), dim=1)
+        residual = self.residual(obs_and_primitive)
+
+        mu, log_std = utils.mu_logstd_from_vector(residual)
+        mu = mu + base
+        return mu, log_std
+
+    def log(self, logger, step):
+        self.primitive.actor_log(logger, step)
+        super(BarePrimitiveResidualActor, self).log(logger, step)
+
+class MixedPrimitiveResidualActor(_ResidualActor):
     def __init__(self, obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds, primitive):
         super().__init__(obs_dim, action_dim, hidden_dim, hidden_depth, log_std_bounds)
 
@@ -82,14 +101,17 @@ class ResidualActor(_ResidualActor):
 
     def log(self, logger, step):
         self.primitive.actor_log(logger, step)
-        super(ResidualActor, self).log(logger, step)
+        super(MixedPrimitiveResidualActor, self).log(logger, step)
 
-def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds):
+def InstantiateResidualActor(action_dim, obs_dim, hidden_dim, hidden_depth, log_std_bounds, bare):
     def _instantiate(primitive):
         if primitive is None:
             residual_actor = NoPrimitiveResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds)
+
+        elif bare:
+            residual_actor = BarePrimitiveResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds, primitive=primitive)
         else:
-            residual_actor = ResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds, primitive=primitive)
+            residual_actor = MixedPrimitiveResidualActor(obs_dim=obs_dim, action_dim=action_dim, hidden_dim=hidden_dim, hidden_depth=hidden_depth, log_std_bounds=log_std_bounds, primitive=primitive)
         return residual_actor
 
     return _instantiate

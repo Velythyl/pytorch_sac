@@ -9,7 +9,7 @@ def array2csv_str(nd_array):
     return ','.join(map(str,nd_array))
 
 
-def plot_gait(gait, global_steps, save_dir=None):
+def plot_gait(gait, global_steps, save_dir=None, debug=False):
     with torch.no_grad():
         nb_actuators = gait.nb_actuators
 
@@ -39,7 +39,10 @@ def plot_gait(gait, global_steps, save_dir=None):
             plt.ylabel('activation')
 
             plt.savefig(f'{save_dir}/image_actuator{actuator_id}.png')
+            if debug:
+                plt.show()
             plt.clf()
+
 
         #tag = f"eval_gait/A{actuator_id}_S{global_steps}_P{period}"
         #plots[tag] = (all_frames.squeeze(), y1.squeeze())

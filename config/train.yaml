@@ -1,7 +1,7 @@
 defaults:
     - agent: sac
 
-env: quadruped_run
+env: ant_go_to_target
 
 # this needs to be specified manually
 experiment: test_exp
